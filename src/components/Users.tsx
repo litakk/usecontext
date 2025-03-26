@@ -1,85 +1,127 @@
-import { Button } from "@/components/ui/button";
-import { useApi } from "@/hooks/useApi";
-import { method } from "../hooks/useApi";
-import { useEffect, useState } from "react";
+import UserContext from "@/contexts/UserContext";
+import { method, useApi } from "@/hooks/useApi";
+import React, { useContext, useEffect, useState } from "react";
+import { MdDelete, MdEdit } from "react-icons/md";
+import Edit from "./Edit"
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 
-interface ProductListProps {}
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ReactFormState } from "react-dom/client";
 
-interface Product {
-  id: number;
-  name: string;
-  email: string;
-  status: string;
-  role: string;
-  lastActive: string;
-}
+interface UsersProps {}
 
-const ProductList: React.FC<ProductListProps> = () => {
-  const [users, setUsers] = useState<Product[]>([]);
-  const { fetchData, error, loading } = useApi(
-    import.meta.env.VITE_PUBLIC_PATH
-  );
+const Users: React.FC<UsersProps> = () => {
+  const context = useContext(UserContext);
 
+  if (!context) {
+    throw new Error("Users must be used within a ProductProvider");
+  }
+
+  const { filtered, setUsers } = context;
+  const { fetchData } = useApi(import.meta.env.VITE_PUBLIC_PATH);
   useEffect(() => {
-    const getProducts = async () => {
-      const response = await fetchData("/users", method.get); // укажите правильный endpoint
-      if (response) {
-        setUsers(response.data);
+    fetchData("/users", method.get).then((res) => setUsers(res?.data));
+  }, []);
+
+  console.log(filtered);
+
+  const [modal, setModal] = useState(false)
+  const [selected, setSelected] = useState([])
+
+console.log(selected);
+
+const TrashUser = async (id: string) => {
+  try { 
+    await fetch(import.meta.env.VITE_PUBLIC_PATH + `/users/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
       }
-    };
-
-    getProducts();
-  }, [fetchData]);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error fetching data</div>;
+    })
+  } catch (e) {
+    console.log(e);
+    
+  }
+}
 
   return (
     <>
-      <div>
-        <div className="w-[50%] flex justify-between mx-auto">
-          <h1>User Management</h1>
-          <Button>Add User</Button>
-        </div>
-
-        <div>
-          {users.map((user) => (
-            <div key={user.id}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px]">Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Last Active</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.status}</TableCell>
-                    <TableCell>{user.role}</TableCell>
-                    <TableCell  className="text-right">{user.lastActive}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          ))}
-        </div>
+      <div className="shadow border-gray-200 border p-5 rounded-2xl">
+        <Table className="rounded-lg w-full">
+          <TableHeader>
+            <TableRow className="border-gray-200 font-semibold text-left rounded-2xl">
+              <TableHead className="px-6 text-gray-400 py-4">Name</TableHead>
+              <TableHead className="text-gray-400 py-4 px-6">Email</TableHead>
+              <TableHead className="py-4 px-6 text-gray-400">Status</TableHead>
+              <TableHead className="px-6 py-4 text-gray-400">Role</TableHead>
+              <TableHead className="text-gray-400 px-6 py-4">Last Active</TableHead>
+              <TableHead className="py-4 px-6 text-gray-400">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((user) => (
+              <TableRow key={user.id} className="hover:bg-gray-50 border">
+                <TableCell className="font-medium text-gray-800 px-6 py-6">
+                  {user.name}
+                </TableCell>
+                <TableCell className="font-normal py-6 px-6">
+                  {user.email}
+                </TableCell>
+                <TableCell className="px-6 py-6">
+                  <span
+                    className={`text-xs font-semibold rounded-full px-3 py-1 ${
+                      {
+                        Active: "text-white bg-green-500",
+                        Inactive: "text-black bg-gray-200",
+                        Pending:
+                          "text-orange-600 border border-orange-500 bg-orange-100",
+                      }[user.status ?? ""] || "bg-gray-300 text-black"
+                    }`}
+                  >
+                    {user.status}
+                  </span>
+                </TableCell>
+                <TableCell className="px-6 py-6">{user.role}</TableCell>
+                <TableCell className="py-6 px-6">{user.lastActive}</TableCell>
+                <TableCell className="px-6 py-6">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="font-medium hover:text-blue-800 cursor-pointer">
+                      Actions
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem className="flex items-center text-green-600"  onClick={() => { setModal(true); setSelected(user)}}>
+                        <MdEdit className="mr-2"/> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex items-center text-red-600" onClick={() => TrashUser(user.id)}>
+                        <MdDelete className="mr-2 text-red-500"/> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
+
+      {modal && <Edit setModal={setModal} selected={selected} setSelected={setSelected} />}
     </>
   );
 };
 
-export default ProductList;
+export default Users;
